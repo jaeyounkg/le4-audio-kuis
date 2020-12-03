@@ -10,7 +10,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import librosa
 
-#
+# 配列 a の index 番目の要素がピーク（両隣よりも大きい）であれば True を返す
 def is_peak(a, index):
 	# （自分で実装すること，passは消す）
 	pass
