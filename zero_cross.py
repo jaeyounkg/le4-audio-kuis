@@ -26,5 +26,5 @@ def zero_cross(waveform):
 def zero_cross_short(waveform):
 	
 	d = np.array(waveform)
-	return sum([1 if x > 0.0 else 0 for x in d[1:] * d[:-1]])
+	return sum([1 if x < 0.0 else 0 for x in d[1:] * d[:-1]])
 
