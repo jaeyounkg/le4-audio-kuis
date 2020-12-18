@@ -9,7 +9,7 @@ import math
 
 # ノートナンバーから周波数へ
 def nn2hz(notenum):
-	return 440.0 * (2.0 ** (notenum - 69) / 12.0)
+	return 440.0 * (2.0 ** ((notenum - 69) / 12.0))
 
 # 周波数からノートナンバーへ
 def hz2nn(frequency):
