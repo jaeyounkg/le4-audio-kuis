@@ -15,11 +15,13 @@ def hz2nn(frequency):
 #
 # スペクトルと対応する周波数ビンの情報を受け取り，クロマベクトルを算出
 #
+# 【周波数ビンの情報について補足】
 # 例えば，サンプリング周波数が16000の場合は，spectrumは8000Hzまでの情報を保持していることになるため，
-# フレームサイズが512だとすると，
+# spectrumのサイズが512だとすると，
 # frequencies = [1 * (8000/512), 2 * (8000/512), ..., 511 * (8000/512), 8000] とすればよい
 # このような処理をnumpyで実現するばらば，
 # frequencies = np.linspace(1/len(spectrum), 8000, len(spectrum)) などどすればよい
+#
 def chroma_vector(spectrum, frequencies):
 	
 	# 0 = C, 1 = C#, 2 = D, ..., 11 = B
