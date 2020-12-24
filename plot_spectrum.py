@@ -32,9 +32,11 @@ fig = plt.figure()
 
 # スペクトログラムを描画
 plt.xlabel('frequency [Hz]')		# x軸のラベルを設定
-plt.ylabel('Amplitude')				# y軸のラベルを設定
+plt.ylabel('amplitude')				# y軸のラベルを設定
 plt.xlim([0, SR/2])					# x軸の範囲を設定
-plt.plot(fft_log_abs_spec)			# 描画
+# x軸のデータを生成（元々のデータが0~8000Hzに対応するようにする）
+x_data = np.linspace((SR/2)/len(fft_log_abs_spec), SR/2, len(fft_log_abs_spec))
+plt.plot(x_data, fft_log_abs_spec)			# 描画
 # 【補足】
 # 縦軸の最大値はサンプリング周波数の半分 = 16000 / 2 = 8000 Hz となる
 
@@ -48,9 +50,9 @@ fig.savefig('plot-spectrum-whole.png')
 # xlimで表示の領域を変えるだけ
 fig = plt.figure()
 plt.xlabel('frequency [Hz]')
-plt.ylabel('Amplitude')
+plt.ylabel('amplitude')
 plt.xlim([0, 2000])
-plt.plot(fft_log_abs_spec)
+plt.plot(x_data, fft_log_abs_spec)
 
 # 表示
 plt.show()
