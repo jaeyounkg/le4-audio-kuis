@@ -172,7 +172,7 @@ def input_callback(in_data, frame_count, time_info, status_flags):
 	# 現在のフレームの音声データをnumpy arrayに変換
 	x_current_frame = np.frombuffer(in_data, dtype=np.float32)
 
-	# スペクトログラムを計算
+	# スペクトルを計算
 	fft_spec = np.fft.rfft(x_current_frame * hamming_window)
 	fft_log_abs_spec = np.log10(np.abs(fft_spec) + EPSILON)[:-1]
 
