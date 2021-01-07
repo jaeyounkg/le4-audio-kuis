@@ -20,7 +20,7 @@ def hz2nn(frequency):
 # spectrumのサイズが512だとすると，
 # frequencies = [1 * (8000/512), 2 * (8000/512), ..., 511 * (8000/512), 8000] とすればよい
 # このような処理をnumpyで実現するばらば，
-# frequencies = np.linspace(1/len(spectrum), 8000, len(spectrum)) などどすればよい
+# frequencies = np.linspace(8000/len(spectrum), 8000, len(spectrum)) などどすればよい
 #
 def chroma_vector(spectrum, frequencies):
 	
