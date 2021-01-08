@@ -13,6 +13,7 @@
 import pyaudio
 import numpy as np
 import threading
+import time
 
 # matplotlib関連
 import matplotlib.animation as animation
@@ -32,8 +33,10 @@ from pydub.utils import make_chunks
 SAMPLING_RATE = 16000
 
 # フレームサイズ
-# 【注意】今回は pyaudio の仕様のためフレームサイズとシフトサイズは同じサイズ
-FRAME_SIZE = 1024
+FRAME_SIZE = 2048
+
+# サイズシフト
+SHIFT_SIZE = int(SAMPLING_RATE / 20)	# 今回は0.05秒
 
 # スペクトルをカラー表示する際に色の範囲を正規化するために
 # スペクトルの最小値と最大値を指定
@@ -55,7 +58,10 @@ hamming_window = np.hamming(FRAME_SIZE)
 MAX_NUM_SPECTROGRAM = int(FRAME_SIZE / 2)
 
 # グラフに表示する横軸方向のデータ数
-NUM_DATA_SHOWN = 100
+NUM_DATA_SHOWN = 150
+
+# GUIの開始フラグ（まだGUIを開始していないので、ここではFalseに）
+is_gui_running = False
 
 #
 # (1) GUI / グラフ描画の処理
@@ -84,7 +90,7 @@ fig, ax1 = plt.subplots(1, 1)
 canvas = FigureCanvasTkAgg(fig, master=root)
 
 # 横軸の値のデータ
-time_x_data = np.linspace(0, NUM_DATA_SHOWN * (FRAME_SIZE/SAMPLING_RATE), NUM_DATA_SHOWN)
+time_x_data = np.linspace(0, NUM_DATA_SHOWN * (SHIFT_SIZE/SAMPLING_RATE), NUM_DATA_SHOWN)
 # 縦軸の値のデータ
 freq_y_data = np.linspace(8000/MAX_NUM_SPECTROGRAM, 8000, MAX_NUM_SPECTROGRAM)
 
@@ -161,44 +167,55 @@ button.pack()
 # (2) マイク入力のための処理
 #
 
+x_stacked_data = np.array([])
+
 # フレーム毎に呼び出される関数
 def input_callback(in_data, frame_count, time_info, status_flags):
 	
 	# この関数は別スレッドで実行するため
 	# メインスレッドで定義した以下の２つの numpy array を利用できるように global 宣言する
 	# これらにはフレーム毎のスペクトルと音量のデータが格納される
-	global spectrogram_data, volume_data
+	global x_stacked_data, spectrogram_data, volume_data
 
 	# 現在のフレームの音声データをnumpy arrayに変換
 	x_current_frame = np.frombuffer(in_data, dtype=np.float32)
 
-	# スペクトルを計算
-	fft_spec = np.fft.rfft(x_current_frame * hamming_window)
-	fft_log_abs_spec = np.log10(np.abs(fft_spec) + EPSILON)[:-1]
+	# 現在のフレームとこれまでに入力されたフレームを連結
+	x_stacked_data = np.concatenate([x_stacked_data, x_current_frame])
 
-	# ２次元配列上で列方向（時間軸方向）に１つずらし（戻し）
-	# 最後の列（＝最後の時刻のスペクトルがあった位置）に最新のスペクトルデータを挿入
-	spectrogram_data = np.roll(spectrogram_data, -1, axis=1)
-	spectrogram_data[:, -1] = fft_log_abs_spec
+	# フレームサイズ分のデータがあれば処理を行う
+	if len(x_stacked_data) >= FRAME_SIZE:
+		
+		# フレームサイズからはみ出した過去のデータは捨てる
+		x_stacked_data = x_stacked_data[len(x_stacked_data)-FRAME_SIZE:]
 
-	# 音量も同様の処理
-	vol = 20 * np.log10(np.mean(x_current_frame ** 2) + EPSILON)
-	volume_data = np.roll(volume_data, -1)
-	volume_data[-1] = vol
+		# スペクトルを計算
+		fft_spec = np.fft.rfft(x_stacked_data * hamming_window)
+		fft_log_abs_spec = np.log10(np.abs(fft_spec) + EPSILON)[:-1]
+
+		# ２次元配列上で列方向（時間軸方向）に１つずらし（戻し）
+		# 最後の列（＝最後の時刻のスペクトルがあった位置）に最新のスペクトルデータを挿入
+		spectrogram_data = np.roll(spectrogram_data, -1, axis=1)
+		spectrogram_data[:, -1] = fft_log_abs_spec
+
+		# 音量も同様の処理
+		vol = 20 * np.log10(np.mean(x_current_frame ** 2) + EPSILON)
+		volume_data = np.roll(volume_data, -1)
+		volume_data[-1] = vol
 	
 	# 戻り値は pyaudio の仕様に従うこと
 	return None, pyaudio.paContinue
 
 # マイクからの音声入力にはpyaudioを使用
 # ここではpyaudioの再生ストリームを作成
-# 【注意】今回は pyaudio の仕様のためフレームサイズとシフトサイズは同じサイズ
+# 【注意】シフトサイズごとに指定された関数が呼び出される
 p = pyaudio.PyAudio()
 stream = p.open(
 	format = pyaudio.paFloat32,
 	channels = 1,
 	rate = SAMPLING_RATE,
 	input = True,						# ここをTrueにするとマイクからの入力になる 
-	frames_per_buffer = FRAME_SIZE,		# フレームサイズ
+	frames_per_buffer = SHIFT_SIZE,		# シフトサイズ
 	stream_callback = input_callback	# ここでした関数がマイク入力の度に呼び出される（frame_per_bufferで指定した単位で）
 )
 
@@ -230,13 +247,14 @@ def play_music():
 
 	# この関数は別スレッドで実行するため
 	# メインスレッドで定義した以下の２つの変数を利用できるように global 宣言する
-	global is_gui_running, text
+	global is_gui_running, audio_data, now_playing_sec
 
 	# pydubのmake_chunksを用いて音楽ファイルのデータを切り出しながら読み込む
 	# 第二引数には何ミリ秒毎に読み込むかを指定
 	# ここでは10ミリ秒ごとに読み込む
 
 	size_frame_music = 10	# 10ミリ秒毎に読み込む
+
 	idx = 0
 
 	# make_chunks関数を使用して一定のフレーム毎に音楽ファイルを読み込む
@@ -255,18 +273,36 @@ def play_music():
 		stream_play.write(chunk._data)
 		
 		# 現在の再生位置を計算（単位は秒）
-		now_sec = (idx * size_frame_music) / 1000.
+		now_playing_sec = (idx * size_frame_music) / 1000.
+		
+		idx += 1
+
+# 再生時間の表示を随時更新する関数
+def update_gui_text():
+
+	global is_gui_running, now_playing_sec, text
+
+	while True:
 		
 		# GUIが表示されていれば再生位置（秒）をテキストとしてGUI上に表示
 		if is_gui_running:
-			text.set('%.3f' % now_sec)
+			text.set('%.3f' % now_playing_sec)
 		
-		idx += 1
+		# 0.01秒ごとに更新
+		time.sleep(0.01)
+
+# 再生時間を表す
+now_playing_sec = 0.0
 
 # 音楽を再生するパートを関数化したので，それを別スレッドで（GUIのため）再生開始
 t_play_music = threading.Thread(target=play_music)
 t_play_music.setDaemon(True)	# GUIが消されたときにこの別スレッドの処理も終了されるようにするため
 t_play_music.start()
+
+# 再生時間の表示を随時更新する関数を別スレッドで開始
+t_update_gui = threading.Thread(target=update_gui_text)
+t_update_gui.setDaemon(True)	# GUIが消されたときにこの別スレッドの処理も終了されるようにするため
+t_update_gui.start()
 
 #
 # (4) 全体の処理を実行
