@@ -58,7 +58,7 @@ hamming_window = np.hamming(FRAME_SIZE)
 MAX_NUM_SPECTROGRAM = int(FRAME_SIZE / 2)
 
 # グラフに表示する横軸方向のデータ数
-NUM_DATA_SHOWN = 150
+NUM_DATA_SHOWN = 100
 
 # GUIの開始フラグ（まだGUIを開始していないので、ここではFalseに）
 is_gui_running = False
@@ -77,6 +77,10 @@ is_gui_running = False
 def animate(frame_index):
 
 	ax1_sub.set_array(spectrogram_data)
+
+	# この上の処理を下記のようにすれば楽曲のスペクトログラムが表示される
+	# ax1_sub.set_array(spectrogram_data_music)
+	
 	ax2_sub.set_data(time_x_data, volume_data)
 	
 	return ax1_sub, ax2_sub
@@ -98,6 +102,9 @@ freq_y_data = np.linspace(8000/MAX_NUM_SPECTROGRAM, 8000, MAX_NUM_SPECTROGRAM)
 # この numpy array にデータが更新されていく
 spectrogram_data = np.zeros((len(freq_y_data), len(time_x_data)))
 volume_data = np.zeros(len(time_x_data))
+
+# 楽曲のスペクトログラムを格納するデータ（このサンプルでは計算のみ）
+spectrogram_data_music = np.zeros((len(freq_y_data), len(time_x_data)))
 
 # スペクトログラムを描画する際に横軸と縦軸のデータを行列にしておく必要がある
 # これは下記の matplotlib の pcolormesh の仕様のため
@@ -228,6 +235,12 @@ stream = p.open(
 # ここは各自の音源ファイルに合わせて変更すること
 filename = './mp3/hotaru_no_hikari.mp3'
 
+#
+# 【注意】なるべく1チャネルの音声を利用すること
+# ステレオ（2チャネル）の場合は SoX などでモノラルに変換できる
+# sox stereo.wav -c 1 mono.wav
+#
+
 # pydubを使用して音楽ファイルを読み込む
 audio_data = AudioSegment.from_mp3(filename)
 
@@ -241,13 +254,16 @@ stream_play = p_play.open(
 	output = True												# 出力モードに設定
 )
 
+# 楽曲のデータを格納
+x_stacked_data_music = np.array([])
+
 # pydubで読み込んだ音楽ファイルを再生する部分のみ関数化する
 # 別スレッドで実行するため
 def play_music():
 
 	# この関数は別スレッドで実行するため
 	# メインスレッドで定義した以下の２つの変数を利用できるように global 宣言する
-	global is_gui_running, audio_data, now_playing_sec
+	global is_gui_running, audio_data, now_playing_sec, x_stacked_data_music, spectrogram_data_music
 
 	# pydubのmake_chunksを用いて音楽ファイルのデータを切り出しながら読み込む
 	# 第二引数には何ミリ秒毎に読み込むかを指定
@@ -276,6 +292,42 @@ def play_music():
 		now_playing_sec = (idx * size_frame_music) / 1000.
 		
 		idx += 1
+
+		#
+		# 【補足】
+		# 楽曲のスペクトログラムを計算する場合には下記のように楽曲のデータを受け取る
+		# ただし，音声データの値は -1.0~1.0 ではなく，16bit の整数値であるので正規化を施している
+		# また十分なサイズの音声データを確保してからfftを実行すること
+		# 楽曲が44.1kHzの場合，44100 / (1000/10) のサイズのデータとなる
+		# 以下では処理のみを行い，表示はしない．表示をするには animate 関数の中身を変更すること 
+		
+		# データの取得
+		data_music = np.array(chunk.get_array_of_samples())
+		
+		# 正規化
+		data_music = data_music / np.iinfo(np.int32).max	
+
+		#
+		# 以下はマイク入力のときと同様
+		#
+
+		# 現在のフレームとこれまでに入力されたフレームを連結
+		x_stacked_data_music = np.concatenate([x_stacked_data_music, data_music])
+
+		# フレームサイズ分のデータがあれば処理を行う
+		if len(x_stacked_data_music) >= FRAME_SIZE:
+			
+			# フレームサイズからはみ出した過去のデータは捨てる
+			x_stacked_data_music = x_stacked_data_music[len(x_stacked_data_music)-FRAME_SIZE:]
+
+			# スペクトルを計算
+			fft_spec = np.fft.rfft(x_stacked_data_music * hamming_window)
+			fft_log_abs_spec = np.log10(np.abs(fft_spec) + EPSILON)[:-1]
+
+			# ２次元配列上で列方向（時間軸方向）に１つずらし（戻し）
+			# 最後の列（＝最後の時刻のスペクトルがあった位置）に最新のスペクトルデータを挿入
+			spectrogram_data_music = np.roll(spectrogram_data_music, -1, axis=1)
+			spectrogram_data_music[:, -1] = fft_log_abs_spec
 
 # 再生時間の表示を随時更新する関数
 def update_gui_text():
