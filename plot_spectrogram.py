@@ -21,13 +21,13 @@ x, _ = librosa.load('aiueo.wav', sr=SR)
 #
 
 # フレームサイズ
-size_frame = 512			# 2のべき乗
+size_frame = 4096			# 2のべき乗
 
 # フレームサイズに合わせてハミング窓を作成
 hamming_window = np.hamming(size_frame)
 
 # シフトサイズ
-size_shift = 16000 / 100	# 0.001 秒 (10 msec)
+size_shift = 16000 / 100	# 0.01 秒 (10 msec)
 
 # スペクトログラムを保存するlist
 spectrogram = []
@@ -61,8 +61,11 @@ for i in np.arange(0, len(x)-size_frame, size_shift):
 	# 複素スペクトログラムを対数振幅スペクトログラムに
 	fft_log_abs_spec = np.log(np.abs(fft_spec))
 
+	size_target = int(len(fft_log_abs_spec) * (500 / 8000))
+	fft_log_abs_spec_short = fft_log_abs_spec[:size_target]
+
 	# 計算した対数振幅スペクトログラムを配列に保存
-	spectrogram.append(fft_log_abs_spec)
+	spectrogram.append(fft_log_abs_spec_short)
 
 
 #
@@ -76,8 +79,8 @@ fig = plt.figure()
 plt.xlabel('sample')					# x軸のラベルを設定
 plt.ylabel('frequency [Hz]')		# y軸のラベルを設定
 plt.imshow(
-	np.flipud(np.array(spectrogram).T),		# 画像とみなすために，データを転地して上下反転
-	extent=[0, len(x), 0, SR/2],			# (横軸の原点の値，横軸の最大値，縦軸の原点の値，縦軸の最大値)
+	np.flipud(np.array(spectrogram).T),		# 画像とみなすために，データを転置して上下反転
+	extent=[0, len(x), 0, 500],			# (横軸の原点の値，横軸の最大値，縦軸の原点の値，縦軸の最大値)
 	aspect='auto',
 	interpolation='nearest'
 )
