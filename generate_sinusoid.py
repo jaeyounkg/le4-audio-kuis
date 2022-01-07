@@ -5,20 +5,23 @@
 # 正弦波を生成し，音声ファイルとして出力する
 #
 
-import sys
 import math
+import sys
+
 import numpy as np
 import scipy.io.wavfile
+
 
 # 正弦波を生成する関数
 # sampling_rate ... サンプリングレート
 # frequency ... 生成する正弦波の周波数
 # duration ... 生成する正弦波の時間的長さ
 def generate_sinusoid(sampling_rate, frequency, duration):
-	sampling_interval = 1.0 / sampling_rate
-	t = np.arange(sampling_rate * duration) * sampling_interval
-	waveform = np.sin(2.0 * math.pi * frequency * t)
-	return waveform
+    sampling_interval = 1.0 / sampling_rate
+    t = np.arange(sampling_rate * duration) * sampling_interval
+    waveform = np.sin(2.0 * math.pi * frequency * t)
+    return waveform
+
 
 # サンプリングレート
 sampling_rate = 16000.0
@@ -27,7 +30,7 @@ sampling_rate = 16000.0
 frequency = 440.0
 
 # 生成する正弦波の時間的長さ
-duration = 2.0 # seconds
+duration = 2.0  # seconds
 
 # 正弦波を生成する
 waveform = generate_sinusoid(sampling_rate, frequency, duration)
@@ -36,8 +39,8 @@ waveform = generate_sinusoid(sampling_rate, frequency, duration)
 waveform = waveform * 0.9
 
 # 値の範囲を[-1.0 ~ +1.0] から [-32768 ~ +32767] へ変換する
-waveform = (waveform * 32768.0). astype('int16')
+waveform = (waveform * 32768.0).astype("int16")
 
 # 音声ファイルとして出力する
-filename = 'sinuoid_test.wav'
-scipy.io.wavfile.write(filename , int(sampling_rate), waveform)
+filename = "sinuoid_test.wav"
+scipy.io.wavfile.write(filename, int(sampling_rate), waveform)

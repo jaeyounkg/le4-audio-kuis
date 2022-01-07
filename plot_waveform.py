@@ -1,19 +1,17 @@
-#
-# 計算機科学実験及演習 4「音響信号処理」
-# サンプルソースコード
-#
-# 音声ファイルを読み込み，波形を図示する．
-#
+"""
+計算機科学実験及演習 4「音響信号処理」
+サンプルソースコード
 
-# ライブラリの読み込み
-import matplotlib.pyplot as plt
+音声ファイルを読み込み，波形を図示する．
+"""
 import librosa
+import matplotlib.pyplot as plt
 
 # サンプリングレート
 SR = 16000
 
 # 音声ファイルの読み込み
-x, _ = librosa.load('aiueo.wav', sr=SR)
+x, _ = librosa.load("aiueo.wav", sr=SR)
 
 # xに波形データが保存される
 # 第二戻り値はサンプリングレート（ここでは必要ないので _ としている）
@@ -30,11 +28,9 @@ print(x)
 fig = plt.figure(figsize=(10, 4))
 
 # 波形を描画
-plt.plot(x)										# 描画データを追加
-plt.xlabel('Sampling point')					# x軸のラベルを設定
-plt.show()										# 表示
+plt.plot(x)  # 描画データを追加
+plt.xlabel("Sampling point")  # x軸のラベルを設定
+plt.show()  # 表示
 
 # 画像ファイルに保存
-fig.savefig('plot-waveform.png')
-
-
+fig.savefig("plot-waveform.png")

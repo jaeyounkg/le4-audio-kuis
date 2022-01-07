@@ -7,8 +7,9 @@
 
 import numpy as np
 
+
 # スペクトルを受け取り，ケプストラムを返す関数
 def cepstrum(amplitude_spectrum):
-	log_spectrum = np.log(amplitude_spectrum)
-	cepstrum = np.fft.fft(log_spectrum)
-	return cepstrum
+    log_spectrum = np.log(amplitude_spectrum)
+    cepstrum = np.fft.fft(log_spectrum)
+    return cepstrum
