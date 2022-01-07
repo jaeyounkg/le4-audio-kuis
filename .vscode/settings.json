@@ -1,0 +1,18 @@
+{
+    "python.analysis.extraPaths": [
+        "gpr-common",
+        "app",
+    ],
+    "python.formatting.provider": "black",
+    "python.sortImports.args": [
+        "--profile", "black",
+    ],
+    "[python]": {
+        "editor.formatOnSave": true,
+        "editor.codeActionsOnSave": {
+            "source.organizeImports": true,
+        },
+    },
+    "python.linting.mypyEnabled": true,
+    "python.linting.enabled": true,
+}
