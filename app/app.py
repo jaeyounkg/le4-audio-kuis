@@ -19,24 +19,7 @@ from kivy.uix.image import Image
 from kivy.uix.slider import Slider
 from kivy.uix.widget import Widget
 
-
-class AudioAnalyzer:
-    SR = 16000
-    frame_size = 4096
-
-    def __init__(self, audio_path):
-        self.wave, _ = librosa.load(audio_path, sr=self.SR)
-        self.spectrogram = self._get_spectrogram(self.wave)
-
-    def _get_spectrogram(self, x):
-        hamming_window = np.hamming(self.frame_size)  # フレームサイズに合わせてハミング窓を作成
-        shift_size = self.SR / 100  # 0.01 秒 (10 msec)
-        spectrogram = []
-        for i in range(0, len(x) - self.frame_size, int(shift_size)):
-            x_frame = x[i : i + self.frame_size]
-            x_fft = np.log(np.abs(np.fft.rfft(x_frame * hamming_window)))
-            spectrogram.append(x_fft)
-        return np.array(spectrogram)
+from analyze import AudioAnalyzer
 
 
 class AudioView(BoxLayout):
@@ -61,10 +44,6 @@ class AudioView(BoxLayout):
 class SpectrogramView(AudioView):
     audio = ObjectProperty(None)
 
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        self.bind(audio=self.init)
-
     def init(self, *args):
         self.fig, self.ax = plt.subplots()
         self.im = self.ax.imshow(
@@ -74,6 +53,9 @@ class SpectrogramView(AudioView):
             interpolation="nearest",
         )
         (self.line,) = self.ax.plot([0, 0], [0, self.audio.SR / 2], color="white")
+        self.ax.set_title("Spectrogram")
+        self.ax.set_xlabel("sample")
+        self.ax.set_ylabel("frequency [Hz]")
         widget = FigureCanvasKivyAgg(self.fig)
         self.add_widget(widget)
 
@@ -89,25 +71,27 @@ class SpectrogramView(AudioView):
 class SpectrumView(AudioView):
     audio = ObjectProperty(None)
 
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        self.bind(audio=self.init)
+    def xs(self):
+        """Get x values of plot"""
+        t = self.audio.spectrogram.shape[1]
+        return np.arange(t) * (self.audio.SR / 2) / t
 
     def init(self, *args):
         self.fig, self.ax = plt.subplots()
-        (self.line,) = self.ax.plot(
-            list(range(self.audio.spectrogram.shape[1])),
-            self.audio.spectrogram[0],
-        )
+        (self.plot,) = self.ax.plot(self.xs(), self.audio.spectrogram[0])
+        (self.line,) = self.ax.plot([0, self.audio.SR / 2], [0, 0], color="black")
+        self.ax.set_xlim(0, self.audio.SR / 2)
         self.ax.set_ylim(self.audio.spectrogram.min(), self.audio.spectrogram.max())
+        self.ax.set_title("Spectrum")
+        self.ax.set_xlabel("Frequency [Hz]")
         widget = FigureCanvasKivyAgg(self.fig)
         self.add_widget(widget)
 
-    def update_view(self, value: int, *args, **kwargs):
-        self.line.set_data(
-            list(range(self.audio.spectrogram.shape[1])),
-            self.audio.spectrogram[value, :],
-        )
+    def update_view(self, value: int, max_freq: int, *args, **kwargs):
+        """Update plot for updated sample & max_freq values"""
+        self.plot.set_data(self.xs(), self.audio.spectrogram[value, :])
+        self.line.set_data([0, max_freq], [0, 0])
+        self.ax.set_xlim(0, max_freq)
         self.update_fig()
 
 
@@ -115,26 +99,20 @@ class MainWidget(BoxLayout):
     spectrogram = ObjectProperty(None)
     slider = ObjectProperty(None)
     spectrum = ObjectProperty(None)
+    freq_slider = ObjectProperty(None)
     audio = ObjectProperty(AudioAnalyzer("data/aiueo.wav"))
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
+        self.slider.bind(value=self.slider_update_view)
+        self.freq_slider.bind(value=self.freq_slider_update_view)
 
-        # self.spectrogram = SpectrogramView(self.audio)
-        # self.slider = Slider(
-        #     size_hint=(1, 0.075), min=0, max=self.audio.spectrogram.shape[0] - 1
-        # )
-        # self.spectrum = SpectrumView(self.audio)
-
-        self.slider.bind(value=self.update_view)
-
-        # self.add_widget(self.spectrogram)
-        # self.add_widget(self.slider)
-        # self.add_widget(self.spectrum)
-
-    def update_view(self, *args, **kwargs):
+    def slider_update_view(self, *args, **kwargs):
         self.spectrogram.update_view(int(self.slider.value))
-        self.spectrum.update_view(int(self.slider.value))
+        self.spectrum.update_view(int(self.slider.value), int(self.freq_slider.value))
+
+    def freq_slider_update_view(self, *args, **kwargs):
+        self.spectrum.update_view(int(self.slider.value), int(self.freq_slider.value))
 
 
 class TebuAudioApp(App):

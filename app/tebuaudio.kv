@@ -8,6 +8,7 @@
     spectrogram: spectrogram
     slider: slider
     spectrum: spectrum
+    freq_slider: freq_slider
 
     BoxLayout:
         orientation: "vertical"
@@ -18,13 +19,20 @@
 
         Slider:
             id: slider
-            size_hint: 1, 0.1
+            size_hint: 1, 0.08
             min: 0
             max: root.audio.spectrogram.shape[0] - 1
 
         SpectrumView:
             id: spectrum
             audio: root.audio
+
+        Slider:
+            id: freq_slider
+            size_hint: 1, 0.08
+            min: 1
+            max: root.audio.SR // 2
+            value: self.max
 
     BoxLayout:
         orientation: "vertical"
