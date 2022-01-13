@@ -1,5 +1,15 @@
 # le4-audio-kuis
 
-京都大学 工学部 情報学科 計算機科学実験及演習4 音響信号処理 のサンプルソースコードです。
+## 環境構築
 
-簡易カラオケシステムを作成します。
+```
+pip install -r requiments.lock
+garden install matplotlib
+```
+
+## アプリの実行
+
+```
+python app/app.py
+```
+
