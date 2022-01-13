@@ -50,7 +50,7 @@ class WaveView(AudioView):
         (self.plot,) = self.ax.plot(np.arange(wave.shape[0]), wave)
         (self.line1,) = self.ax.plot([0, 0], [min(wave), max(wave)], color="black")
         (self.line2,) = self.ax.plot([0, 0], [min(wave), max(wave)], color="black")
-        self.ax.set_title("Waveform")
+        self.ax.set_title(f"Waveform\nF0: {get_f0(self.audio.wave)}")
         self.ax.set_xlabel("Sample")
         widget = FigureCanvasKivyAgg(self.fig)
         self.add_widget(widget)
@@ -109,8 +109,6 @@ class SpectrumView(AudioView):
         self.ax.set_xlabel("Frequency [Hz]")
         widget = FigureCanvasKivyAgg(self.fig)
         self.add_widget(widget)
-
-        print(get_f0(self.audio.wave))
 
     def update_view(self, value: int, max_freq: int, *args, **kwargs):
         """Update plot for updated sample & max_freq values"""
