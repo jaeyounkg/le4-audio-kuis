@@ -1,0 +1,7 @@
+kivy[full]
+kivy_garden
+numpy
+scipy
+matplotlib
+seaborn
+librosa

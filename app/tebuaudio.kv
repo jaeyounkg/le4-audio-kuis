@@ -1,0 +1,32 @@
+#:kivy 2.0.0
+
+<MainWidget>:
+    orientation: "horizontal"
+    padding: 20
+    spacing: 20
+
+    spectrogram: spectrogram
+    slider: slider
+    spectrum: spectrum
+
+    BoxLayout:
+        orientation: "vertical"
+
+        SpectrogramView:
+            id: spectrogram
+            audio: root.audio
+
+        Slider:
+            id: slider
+            size_hint: 1, 0.1
+            min: 0
+            max: root.audio.spectrogram.shape[0] - 1
+
+        SpectrumView:
+            id: spectrum
+            audio: root.audio
+
+    BoxLayout:
+        orientation: "vertical"
+
+        Button:

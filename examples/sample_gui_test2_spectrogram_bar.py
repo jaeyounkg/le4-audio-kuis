@@ -19,7 +19,7 @@ SR = 16000  # サンプリングレート
 size_shift = 16000 / 100  # シフトサイズ = 0.001 秒 (10 msec)
 
 # 音声ファイルを読み込む
-x, _ = librosa.load("aiueo.wav", sr=SR)
+x, _ = librosa.load("data/aiueo.wav", sr=SR)
 
 # ファイルサイズ（秒）
 duration = len(x) / SR
