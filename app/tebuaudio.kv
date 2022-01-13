@@ -1,40 +1,70 @@
 #:kivy 2.0.0
 
 <MainWidget>:
-    orientation: "horizontal"
+    orientation: "vertical"
     padding: 20
     spacing: 20
 
+    wave: wave
     spectrogram: spectrogram
-    slider: slider
     spectrum: spectrum
+
+    wave_slider: wave_slider
+    wave_frame_slider: wave_frame_slider
+    slider: slider
     freq_slider: freq_slider
 
     BoxLayout:
         orientation: "vertical"
 
-        SpectrogramView:
-            id: spectrogram
+        WaveView:
+            id: wave
             audio: root.audio
 
-        Slider:
-            id: slider
-            size_hint: 1, 0.08
-            min: 0
-            max: root.audio.spectrogram.shape[0] - 1
+        BoxLayout:
+            orientation: "horizontal"
+            size_hint_y: 0.08
 
-        SpectrumView:
-            id: spectrum
-            audio: root.audio
+            Slider:
+                id: wave_slider
+                size_hint_x: 0.6
+                min: 0
+                max: len(root.audio.wave) - 2
 
-        Slider:
-            id: freq_slider
-            size_hint: 1, 0.08
-            min: 1
-            max: root.audio.SR // 2
-            value: self.max
+            Slider:
+                id: wave_frame_slider
+                size_hint_x: 0.4
+                min: 1
+                max: len(root.audio.wave) - 1
+                value: self.max
 
     BoxLayout:
-        orientation: "vertical"
+        orientation: "horizontal"
+        spacing: 20
 
-        Button:
+        BoxLayout:
+            orientation: "vertical"
+
+            SpectrogramView:
+                id: spectrogram
+                audio: root.audio
+
+            Slider:
+                id: slider
+                size_hint: 1, 0.08
+                min: 0
+                max: root.audio.spectrogram.shape[0] - 1
+
+        BoxLayout:
+            orientation: "vertical"
+
+            SpectrumView:
+                id: spectrum
+                audio: root.audio
+
+            Slider:
+                id: freq_slider
+                size_hint: 1, 0.08
+                min: 1
+                max: root.audio.SR // 2
+                value: self.max

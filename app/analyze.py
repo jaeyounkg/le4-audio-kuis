@@ -19,3 +19,15 @@ class AudioAnalyzer:
             x_fft = np.log(np.abs(np.fft.rfft(x_frame * hamming_window)))
             spectrogram.append(x_fft)
         return np.array(spectrogram)
+
+
+def get_f0(wave):
+    corr = np.correlate(wave, wave, "full")
+    corr = corr[len(corr) // 2 :]
+
+    def is_peak(corr, i):
+        return 0 < i < len(corr) - 1 and corr[i - 1] < corr[i] < corr[i + 1]
+
+    peakindices = [i for i in range(len(corr)) if is_peak(corr, i)]
+    peakindices = [i for i in peakindices if i != 0]
+    return max(peakindices, key=lambda index: corr[index])
