@@ -160,7 +160,7 @@ class MainWidget(BoxLayout):
         return int(np.clip(t, 0, len(self.audio.wave) - 1))
 
     def wave_slider_update_view(self, *args, **kwargs):
-        """Callback for both wave_slider and wave_frame_slider"""
+        """Callback for when either wave_slider and wave_frame_slider is updated"""
         scaler = (
             lambda x: x
             / (len(self.audio.wave) - self.audio.frame_size)
@@ -173,10 +173,12 @@ class MainWidget(BoxLayout):
         self.spectrum.update_view(int(self.slider.value), int(self.freq_slider.value))
 
     def slider_update_view(self, *args, **kwargs):
+        """Callback for when slider is updated"""
         self.spectrogram.update_view(self.s(), self.t(), int(self.slider.value))
         self.spectrum.update_view(int(self.slider.value), int(self.freq_slider.value))
 
     def freq_slider_update_view(self, *args, **kwargs):
+        """Callback for when freq_slider is updated"""
         self.spectrum.update_view(int(self.slider.value), int(self.freq_slider.value))
 
 
