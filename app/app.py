@@ -23,6 +23,10 @@ from analyze import AudioAnalyzer, get_f0
 
 
 class AudioView(BoxLayout):
+    """
+    Parent class for all BoxLayout classes defined for showing some kind of plot for given waveform. Defines some common patterns for showing plot.
+    """
+
     audio = ObjectProperty(None)
     ax: plt.Axes
     fig: matplotlib.figure.Figure
@@ -42,9 +46,12 @@ class AudioView(BoxLayout):
 
 
 class WaveView(AudioView):
+    """Shows raw waveform"""
+
     audio = ObjectProperty(None)
 
     def init(self, *args):
+        """Initialize waveform plot and 2 lines showing the selected range for analysis"""
         wave = self.audio.wave
         self.fig, self.ax = plt.subplots()
         (self.plot,) = self.ax.plot(np.arange(wave.shape[0]), wave)
@@ -56,6 +63,7 @@ class WaveView(AudioView):
         self.add_widget(widget)
 
     def update_view(self, s: int, t: int, *args, **kwargs):
+        """Update the 2 lines showing selected range"""
         wave = self.audio.wave
         self.line1.set_data([s, s], [min(wave), max(wave)])
         self.line2.set_data([t, t], [min(wave), max(wave)])
@@ -63,9 +71,12 @@ class WaveView(AudioView):
 
 
 class SpectrogramView(AudioView):
+    """Shows spectrogram"""
+
     audio = ObjectProperty(None)
 
     def init(self, *args):
+        """Initialize spcectrogram plot and a line showing selected sample to show spectrum from"""
         self.fig, self.ax = plt.subplots()
         self.im = self.ax.imshow(
             np.flipud(self.audio.spectrogram.T),
@@ -81,6 +92,7 @@ class SpectrogramView(AudioView):
         self.add_widget(widget)
 
     def update_view(self, s: int, t: int, value: int, *args, **kwargs):
+        """Update spectrogram view to the given [s, t] range, and the line showing selected sample"""
         self.ax.set_xlim(s, t)
 
         x = value * len(self.audio.wave) / self.audio.spectrogram.shape[0]
@@ -92,6 +104,8 @@ class SpectrogramView(AudioView):
 
 
 class SpectrumView(AudioView):
+    """Shows spectrum in selected sample time"""
+
     audio = ObjectProperty(None)
 
     def xs(self):
@@ -100,6 +114,7 @@ class SpectrumView(AudioView):
         return np.arange(t) * (self.audio.SR / 2) / t
 
     def init(self, *args):
+        """Initialize spectrum plot and a black line showing where the value is 0"""
         self.fig, self.ax = plt.subplots()
         (self.plot,) = self.ax.plot(self.xs(), self.audio.spectrogram[0])
         (self.line,) = self.ax.plot([0, self.audio.SR / 2], [0, 0], color="black")
@@ -110,9 +125,9 @@ class SpectrumView(AudioView):
         widget = FigureCanvasKivyAgg(self.fig)
         self.add_widget(widget)
 
-    def update_view(self, value: int, max_freq: int, *args, **kwargs):
+    def update_view(self, sample_t: int, max_freq: int, *args, **kwargs):
         """Update plot for updated sample & max_freq values"""
-        self.plot.set_data(self.xs(), self.audio.spectrogram[value, :])
+        self.plot.set_data(self.xs(), self.audio.spectrogram[sample_t, :])
         self.line.set_data([0, max_freq], [0, 0])
         self.ax.set_xlim(0, max_freq)
         self.update_fig()
@@ -145,6 +160,7 @@ class MainWidget(BoxLayout):
         return int(np.clip(t, 0, len(self.audio.wave) - 1))
 
     def wave_slider_update_view(self, *args, **kwargs):
+        """Callback for both wave_slider and wave_frame_slider"""
         scaler = (
             lambda x: x
             / (len(self.audio.wave) - self.audio.frame_size)
