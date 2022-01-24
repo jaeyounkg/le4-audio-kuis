@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import io
+import logging
 import sys
 import threading
 import wave
@@ -27,6 +28,8 @@ from kivy.uix.slider import Slider
 from kivy.uix.widget import Widget
 
 from analyze import AudioAnalyzer, get_f0, get_spectrogram
+
+logger = logging.getLogger(__file__)
 
 
 class AudioView(BoxLayout):
@@ -69,23 +72,30 @@ class WaveView(AudioView):
         widget = FigureCanvasKivyAgg(self.fig)
         self.add_widget(widget)
 
-    def update_view(self, wave, *args, **kwargs):
+    def update_view(self, wave, ymin=None, ymax=None, *args, **kwargs):
         """Update the 2 lines showing selected range"""
+        if len(wave) == 0:
+            return
+        if ymin is None:
+            ymin = min(wave)
+        if ymax is None:
+            ymax = max(wave)
         self.plot.set_data(np.arange(len(wave)), wave)
         self.ax.set_xlim(0, len(wave))
-        self.ax.set_ylim(-1, 1)
-        # self.ax.set_ylim(0, 1000)
+        self.ax.set_ylim(ymin, ymax)
         self.update_fig()
 
 
 class MainWidget(BoxLayout):
-    wave_view = ObjectProperty(None)
+    db_view = ObjectProperty(None)
+    f0_view = ObjectProperty(None)
     frames = ListProperty(list())
 
     CHANNELS = 2
     FORMAT = pyaudio.paInt16
     FR = 44100  # Frame Rate = Sample Rate * Channels
     CHUNKS = 1024
+    SHOW_SAMPLES = 12000
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -108,18 +118,16 @@ class MainWidget(BoxLayout):
         self.tick = 0
         Clock.schedule_interval(self.handle_recorded, 1 / 60)
 
-        # self.bind(frames=self.handle_recorded)
-
     def record(self, frames):
         st = datetime.now()
         while True:
             frame = self.stream.read(self.CHUNKS)
-            print(len(frames), datetime.now() - st)
+            logger.debug(len(frames), datetime.now() - st)
             frames.append(frame)
             st = datetime.now()
 
     def handle_recorded(self, *args):
-        print(f"handle: {self.tick}, {len(self.frames)}")
+        logger.debug(f"handle: {self.tick}, {len(self.frames)}")
         for i in range(self.tick, len(self.frames)):
             frame = self.frames[i]
 
@@ -132,32 +140,31 @@ class MainWidget(BoxLayout):
 
             x, _ = librosa.load(f"tmp/recorded{str(i)}.wav")
             self.recorded.extend(x)
-            if len(self.recorded) > 20000:
-                self.recorded = self.recorded[-10000:]
-            if len(self.recorded) >= 10000:
-                self.wave_view.update_view(self.recorded[-10000:])
+            if len(self.recorded) >= self.SHOW_SAMPLES * 2:
+                self.recorded = self.recorded[-self.SHOW_SAMPLES :]
+            # if len(self.recorded) >= self.SHOW_SAMPLES:
+            #     self.wave_view.update_view(self.recorded[-self.SHOW_SAMPLES :])
+
+            N = self.CHUNKS * 5
+            if len(self.recorded) > N:
+                self.f0s.append(get_f0(self.recorded[-self.CHUNKS :]))
+                if len(self.f0s) >= 60:
+                    self.f0s = self.f0s[-60:]
+
+                self.dbs.append(
+                    np.log(np.sqrt(np.sum(np.power(self.recorded[-N:], 2)) / N))
+                )
+                if len(self.dbs) > 60:
+                    self.dbs = self.dbs[-60:]
+
+            DB_THRESHOLD = -7.6
+
+            self.db_view.update_view(self.dbs, -9, -3)
+            self.f0_view.update_view(
+                np.array(self.f0s) * (np.array(self.dbs) > DB_THRESHOLD), 0, 1000
+            )
 
         self.tick = len(self.frames)
-
-    def old_record(self, *args):
-        # current_recorded = list(self.stream.read(self.chunks))
-        current_recorded = [x - 127 for x in list(self.stream.read(self.chunks))]
-        print(min(current_recorded), max(current_recorded))
-        self.recorded.extend(current_recorded)
-        if len(self.recorded) > 20000:
-            self.recorded = self.recorded[-10000:]
-
-        N = self.chunks * 10
-        if len(self.recorded) > N:
-            # self.f0s.append(get_f0(self.recorded[-self.chunks :]))
-            # if len(self.f0s) > 60:
-            #     self.f0s = self.f0s[-60:]
-
-            self.dbs.append(np.sqrt(np.sum(np.power(self.recorded[-N:], 2)) / N))
-            if len(self.dbs) > 60:
-                self.dbs = self.dbs[-60:]
-
-            self.wave_view.update_view(self.dbs)
 
 
 class KaraokeApp(App):
