@@ -4,6 +4,7 @@ import io
 import sys
 import threading
 import wave
+from datetime import datetime
 from functools import partial
 from random import random
 
@@ -72,7 +73,7 @@ class WaveView(AudioView):
         """Update the 2 lines showing selected range"""
         self.plot.set_data(np.arange(len(wave)), wave)
         self.ax.set_xlim(0, len(wave))
-        self.ax.set_ylim(-0.8, 0.8)
+        self.ax.set_ylim(-1, 1)
         # self.ax.set_ylim(0, 1000)
         self.update_fig()
 
@@ -81,13 +82,14 @@ class MainWidget(BoxLayout):
     wave_view = ObjectProperty(None)
     frames = ListProperty(list())
 
+    CHANNELS = 2
+    FORMAT = pyaudio.paInt16
+    FR = 44100  # Frame Rate = Sample Rate * Channels
+    CHUNKS = 1024
+
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
-        self.CHANNELS = 2
-        self.FORMAT = pyaudio.paInt16
-        self.FR = 44100  # Frame Rate = Sample Rate * Channels
-        self.CHUNKS = 1024
         self.pyaudio = pyaudio.PyAudio()
         self.stream = self.pyaudio.open(
             format=self.FORMAT,
@@ -101,37 +103,41 @@ class MainWidget(BoxLayout):
         self.recorded = list()
         self.f0s = list()
         self.dbs = list()
-        # Clock.schedule_interval(self.handle_recorded, 1 / 60)
         thread = threading.Thread(target=self.record, args=(self.frames,), daemon=True)
         thread.start()
+        self.tick = 0
+        Clock.schedule_interval(self.handle_recorded, 1 / 60)
 
-        self.bind(frames=self.handle_recorded)
+        # self.bind(frames=self.handle_recorded)
 
     def record(self, frames):
+        st = datetime.now()
         while True:
             frame = self.stream.read(self.CHUNKS)
+            print(len(frames), datetime.now() - st)
             frames.append(frame)
-            print(len(frames))
+            st = datetime.now()
 
-    def handle_recorded(self, widget, frames):
-        frame = frames[-1]
-        tick = len(frames)
+    def handle_recorded(self, *args):
+        print(f"handle: {self.tick}, {len(self.frames)}")
+        for i in range(self.tick, len(self.frames)):
+            frame = self.frames[i]
 
-        wf = wave.open(f"tmp/recorded{str(tick)}.wav", "wb")
-        wf.setnchannels(self.CHANNELS)
-        wf.setsampwidth(self.pyaudio.get_sample_size(self.FORMAT))
-        wf.setframerate(self.FR)
-        wf.writeframes(frame)
-        wf.close()
+            wf = wave.open(f"tmp/recorded{str(i)}.wav", "wb")
+            wf.setnchannels(self.CHANNELS)
+            wf.setsampwidth(self.pyaudio.get_sample_size(self.FORMAT))
+            wf.setframerate(self.FR)
+            wf.writeframes(frame)
+            wf.close()
 
-        return None
+            x, _ = librosa.load(f"tmp/recorded{str(i)}.wav")
+            self.recorded.extend(x)
+            if len(self.recorded) > 20000:
+                self.recorded = self.recorded[-10000:]
+            if len(self.recorded) >= 10000:
+                self.wave_view.update_view(self.recorded[-10000:])
 
-        x, _ = librosa.load(f"tmp/recorded{str(tick)}.wav")
-        self.recorded.extend(x)
-        if len(self.recorded) > 20000:
-            self.recorded = self.recorded[-10000:]
-        if len(self.recorded) >= 10000:
-            self.wave_view.update_view(self.recorded[-10000:])
+        self.tick = len(self.frames)
 
     def old_record(self, *args):
         # current_recorded = list(self.stream.read(self.chunks))
