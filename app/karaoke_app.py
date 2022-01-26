@@ -118,6 +118,9 @@ class MainWidget(BoxLayout):
         self.tick = 0
         Clock.schedule_interval(self.handle_recorded, 1 / 60)
 
+        music = SoundLoader.load("data/zoe-love.mp3")
+        music.play()
+
     def record(self, frames):
         st = datetime.now()
         while True:
@@ -142,10 +145,8 @@ class MainWidget(BoxLayout):
             self.recorded.extend(x)
             if len(self.recorded) >= self.SHOW_SAMPLES * 2:
                 self.recorded = self.recorded[-self.SHOW_SAMPLES :]
-            # if len(self.recorded) >= self.SHOW_SAMPLES:
-            #     self.wave_view.update_view(self.recorded[-self.SHOW_SAMPLES :])
 
-            N = self.CHUNKS * 5
+            N = self.CHUNKS * 1
             if len(self.recorded) > N:
                 self.f0s.append(get_f0(self.recorded[-self.CHUNKS :]))
                 if len(self.f0s) >= 60:
