@@ -35,5 +35,5 @@ waveform = w1 + w2
 # waveform = (waveform * 32768.0).astype("int16")
 
 # 音声ファイルとして出力する
-filename = "sinuoid_test.wav"
+filename = "data/sinuoid_test.wav"
 scipy.io.wavfile.write(filename, int(SR), waveform)

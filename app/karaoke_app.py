@@ -27,7 +27,7 @@ from kivy.uix.image import Image
 from kivy.uix.slider import Slider
 from kivy.uix.widget import Widget
 
-from analyze import AudioAnalyzer, get_f0, get_spectrogram
+from analyze import AudioAnalyzer, get_f0, get_spectrogram, hz2nn
 
 logger = logging.getLogger(__file__)
 
@@ -37,16 +37,8 @@ class AudioView(BoxLayout):
     Parent class for all BoxLayout classes defined for showing some kind of plot for given waveform. Defines some common patterns for showing plot.
     """
 
-    wave = ObjectProperty(None)
     ax: plt.Axes
     fig: matplotlib.figure.Figure
-
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        self.bind(wave=self.init)
-
-    def init(self, *args):
-        pass
 
     def update_fig(self):
         # self.ax.relim()
@@ -63,7 +55,6 @@ class WaveView(AudioView):
         self.init()
 
     def init(self, *args):
-        """Initialize waveform plot and 2 lines showing the selected range for analysis"""
         self.fig, self.ax = plt.subplots()
         wave = np.zeros(100)
         (self.plot,) = self.ax.plot(np.arange(wave.shape[0]), wave)
@@ -73,7 +64,6 @@ class WaveView(AudioView):
         self.add_widget(widget)
 
     def update_view(self, wave, ymin=None, ymax=None, *args, **kwargs):
-        """Update the 2 lines showing selected range"""
         if len(wave) == 0:
             return
         if ymin is None:
@@ -86,7 +76,31 @@ class WaveView(AudioView):
         self.update_fig()
 
 
+class SpectrogramView(AudioView):
+    def init(self, spectrogram, sr, *args):
+        self.fig, self.ax = plt.subplots()
+        self.im = self.ax.imshow(
+            np.flipud(spectrogram.T),
+            extent=[0, spectrogram.shape[0] / 100, 0, sr // 2],
+            aspect="auto",
+            interpolation="nearest",
+        )
+        (self.line,) = self.ax.plot([0, 0], [0, sr // 2], color="white")
+        self.ax.set_title("Spectrogram")
+        self.ax.set_xlabel("Sample")
+        self.ax.set_ylabel("frequency [Hz]")
+        self.ax.set_ylim(0, 1000)
+        self.ax.set_xlim(0, 10)
+        widget = FigureCanvasKivyAgg(self.fig)
+        self.add_widget(widget)
+
+    def update_view(self, sec):
+        self.ax.set_xlim(sec - 5, sec)
+        self.update_fig()
+
+
 class MainWidget(BoxLayout):
+    spectrogram_view = ObjectProperty(None)
     db_view = ObjectProperty(None)
     f0_view = ObjectProperty(None)
     frames = ListProperty(list())
@@ -94,6 +108,7 @@ class MainWidget(BoxLayout):
     CHANNELS = 2
     FORMAT = pyaudio.paInt16
     FR = 44100  # Frame Rate = Sample Rate * Channels
+    SR = FR // CHANNELS
     CHUNKS = 1024
     SHOW_SAMPLES = 12000
 
@@ -109,17 +124,24 @@ class MainWidget(BoxLayout):
             frames_per_buffer=self.CHUNKS,
         )
 
+        # self.music = SoundLoader.load("data/zoe-love.mp3")
+        self.music, _ = librosa.load("data/not-anyone-else.mp3", sr=self.SR)
+        self.music = self.music[: len(self.music)]
+        # music.play()
+
+        print(len(self.music))
+        spectrogram = get_spectrogram(self.music, self.SR, 4096)
+        self.spectrogram_view.init(spectrogram, self.SR)
+
         self.frames = list()
         self.recorded = list()
         self.f0s = list()
+        self.nns = list()
         self.dbs = list()
         thread = threading.Thread(target=self.record, args=(self.frames,), daemon=True)
         thread.start()
         self.tick = 0
         Clock.schedule_interval(self.handle_recorded, 1 / 60)
-
-        music = SoundLoader.load("data/zoe-love.mp3")
-        music.play()
 
     def record(self, frames):
         st = datetime.now()
@@ -130,7 +152,7 @@ class MainWidget(BoxLayout):
             st = datetime.now()
 
     def handle_recorded(self, *args):
-        logger.debug(f"handle: {self.tick}, {len(self.frames)}")
+        # logger.debug(f"handle: {self.tick}, {len(self.frames)}")
         for i in range(self.tick, len(self.frames)):
             frame = self.frames[i]
 
@@ -148,7 +170,8 @@ class MainWidget(BoxLayout):
 
             N = self.CHUNKS * 1
             if len(self.recorded) > N:
-                self.f0s.append(get_f0(self.recorded[-self.CHUNKS :]))
+                f0 = get_f0(self.recorded[-self.CHUNKS :], self.SR)
+                self.f0s.append(hz2nn(f0) if f0 > 0 else 0)
                 if len(self.f0s) >= 60:
                     self.f0s = self.f0s[-60:]
 
@@ -162,10 +185,13 @@ class MainWidget(BoxLayout):
 
             self.db_view.update_view(self.dbs, -9, -3)
             self.f0_view.update_view(
-                np.array(self.f0s) * (np.array(self.dbs) > DB_THRESHOLD), 0, 1000
+                np.array(self.f0s) * (np.array(self.dbs) > DB_THRESHOLD), 40, 85
             )
 
         self.tick = len(self.frames)
+
+        sec = self.tick / (self.FR / self.CHUNKS)
+        # self.spectrogram_view.update_view(sec)
 
 
 class KaraokeApp(App):

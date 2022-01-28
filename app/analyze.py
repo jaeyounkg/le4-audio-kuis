@@ -1,5 +1,17 @@
+import math
+
 import librosa
 import numpy as np
+
+
+# ノートナンバーから周波数へ
+def nn2hz(notenum):
+    return 440.0 * (2.0 ** ((notenum - 69) / 12.0))
+
+
+# 周波数からノートナンバーへ
+def hz2nn(frequency):
+    return int(round(12.0 * (math.log(frequency / 440.0) / math.log(2.0)))) + 69
 
 
 class AudioAnalyzer:
@@ -32,7 +44,7 @@ def get_spectrogram(wave, sr, frame_size):
     return np.array(spectrogram)
 
 
-def get_f0(wave):
+def get_f0(wave, sr):
     corr = np.correlate(wave, wave, "full")
     corr = corr[len(corr) // 2 :]
 
@@ -41,6 +53,7 @@ def get_f0(wave):
 
     peakindices = [i for i in range(len(corr)) if is_peak(corr, i)]
     peakindices = [i for i in peakindices if i != 0]
-    return (
-        0 if len(peakindices) == 0 else max(peakindices, key=lambda index: corr[index])
-    )
+    if len(peakindices) == 0:
+        return 0
+    maxidx = max(peakindices, key=lambda index: corr[index])
+    return 1 / (maxidx / sr)
