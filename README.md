@@ -7,9 +7,15 @@ pip install -r requiments.lock
 garden install matplotlib
 ```
 
-## アプリの実行
+## アプリの実行（課題１）
 
 ```
-python app/app.py
+python app/tebu_audio_app.py
+```
+
+## カラオケアプリの実行（課題２）
+
+```
+python app/karaoke_app.py
 ```
 
